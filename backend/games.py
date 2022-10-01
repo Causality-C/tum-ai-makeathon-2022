@@ -57,15 +57,20 @@ def upload_files(username, dataset_name):
             )
             img_ids.append(i)
             i += 1
+
+        # Send list of predictions back to the frontend
+        predictions = [f"l{j}" for j in range(len(res["labels"]), i)]
+
         # Run ML Model with images
         success = dataset_table.update_item(
             Key={"dataset_name": dataset_name},
-            UpdateExpression="SET images = :newImages",
-            ExpressionAttributeValues={":newImages": i},
+            UpdateExpression="SET images = :newImages, labels = :newLabels",
+            ExpressionAttributeValues={
+                ":newImages": i,
+                ":newLabels": res["labels"] + predictions,
+            },
             ReturnValues="UPDATED_NEW",
         )
-        # Send list of predictions back to the frontend
-        predictions = [None] * len(files)
         return {"predictions": predictions, "id": img_ids}
     except Exception as e:
         return {
@@ -112,7 +117,7 @@ def create_dataset(username):
         )
     # Check if dataset already exists
     dataset_name = req["dataset_name"]
-    res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+    res = dataset_table.get_item(Key={"dataset_name": dataset_name})
     if "Item" in res:
         return (
             jsonify({"message": f"Dataset with name {dataset_name} already exists"}),
@@ -125,7 +130,9 @@ def create_dataset(username):
         "labels": [],
         "bucket_url": f"{s3_dataset_url}{dataset_name}",
         "games_made": 0,
+        "creator": username,
     }
+
     # Upload
     dataset_table.put_item(Item=dataset)
     return jsonify(dataset)
@@ -135,6 +142,13 @@ def create_dataset(username):
 @tokenRequired
 def get_datasets(username):
     res = dataset_table.scan()["Items"]
+    return jsonify(res)
+
+
+@dataset.route("/datasets/<string:dataset_name>", methods=["GET"])
+@tokenRequired
+def get_dataset(username, dataset_name):
+    res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
     return jsonify(res)
 
 
@@ -188,6 +202,8 @@ def game_end(username, req_game_id):
 
         curr_score = user["score"]
         correct_answers, wrong_answers = req["correct_answers"], req["wrong_answers"]
+
+        # Sets the new score based on algorithm
         score = update_rating(curr_score, correct_answers, wrong_answers)
 
         updated = user_table.update_item(
