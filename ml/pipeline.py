@@ -1,6 +1,8 @@
 # Check core SDK version number
 import azureml.core
+print("SDK version:", azureml.core.VERSION)
 from azureml.core import Workspace, Dataset
+import azure
 import sys
 import cv2
 import matplotlib.pyplot as plt
@@ -19,9 +21,8 @@ import numpy as np
 from PIL import Image
 from io import StringIO
 from torchvision import transforms
+from ml_utils import DiseaseDataset, TrainDiseaseDataset
 
-
-print("SDK version:", azureml.core.VERSION)
 
 # azureml-core of version 1.0.72 or higher is required
 # azureml-dataprep[pandas] of version 1.1.34 or higher is required
@@ -37,82 +38,20 @@ print('Workspace name: ' + ws.name,
       'Subscription id: ' + ws.subscription_id, 
       'Resource group: ' + ws.resource_group, sep='\n')
 
-# ds1: valid.csv
 # ds2: valid image folder
-ds1 = Dataset.get_by_name(ws, name='chexpert')
-ds2 = Dataset.get_by_name(ws, name='chexpert2')
-
-ds_input = ds2.as_mount()
-mount_point = sys.argv[1]
-
-with open(mount_point, 'r') as f:
-    content = f.read()
-    print(content)
-
-"""
+ds2 = azureml.core.Dataset.get_by_name(ws, name='chexpert2')
 try:
     ds2.download(target_path='.', overwrite=False)
 except:
-"""
+    print("Dataset already downloaded!")
+    sys.exit(0)
+
+# ds1: valid.csv
+ds1 = azureml.core.Dataset.get_by_name(ws, name='chexpert')
 df_valid = ds1.to_pandas_dataframe()
 df = df_valid
 for i, p in enumerate(df_valid["Path"]):
     df["Path"][i] = p[20:]
-
-class DiseaseDataset(Dataset):
-    def __init__(self, img_path, label_matrix):
-        self.path = img_path
-        self.folder = [p for p in glob.glob(img_path + '/**', recursive=True) if p.endswith('jpg')]
-        self.labels = label_matrix
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            # transforms.CenterCrop(320),
-            transforms.Resize((320, 320)),
-            transforms.ToTensor(),
-            ])
-
-    def __len__(self):
-        return len(self.folder)
-
-    def __getitem__(self, idx):
-        img_loc = self.folder[idx]
-        image = cv2.imread(img_loc)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = self.transform(image)
-        targets = self.labels[idx]
-
-        return {
-            'image': torch.tensor(image, dtype=torch.float32),
-            'label': torch.tensor(targets, dtype=torch.float32)
-        }
-
-
-class TrainDiseaseDataset(Dataset):
-
-    def __init__(self, zip_file, img_list, label_matrix):
-        self.zip_file = zip_file
-        self.folder = img_list
-        self.labels = label_matrix
-        self.transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.CenterCrop(320),
-            transforms.ToTensor(),
-            ])
-
-    def __len__(self):
-        return len(self.folder)
-
-    def __getitem__(self, idx):
-        img_loc = self.folder[idx][0]
-        im_file = self.zip_file.read(img_loc)
-        image = cv2.imdecode(np.frombuffer(im_file, np.uint8), 1)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = self.transform(image)
-        targets = self.labels[idx]
-        return {
-            'image': torch.tensor(image, dtype=torch.float32),
-            'label': torch.tensor(targets, dtype=torch.float32)
-        }
 
 # READ ZIP FILE
 zip_path = 'CheXpert-v1.0-small.zip'
@@ -162,60 +101,64 @@ test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
 ######  MODEL   #####
 # Check if the model exists
-pretrained = "models/pretrained_densenet121.pth"
-if os.path.isfile(zip_path):
-    model = torch.load(pretrained) # to load
-else:
-    print("ERROR:")
-    print("Download pretrained DenseNet121 model!")
-    sys.exit(0)
+def train():
+    pretrained = "models/pretrained_densenet121.pth"
+    if os.path.isfile(zip_path):
+        model = torch.load(pretrained) # to load
+    else:
+        print("ERROR:")
+        print("Downloading DenseNet121 model..")
+        ds_model = Dataset.get_by_name(ws, name='densenet121')
+        ds_model.download(target_path='.', overwrite=False)
 
-num_output_classes = 14
+    num_output_classes = 14
 
-for param in model.parameters():
-    param.requires_grad = False
-    
-new_classifier = torch.nn.Sequential(
-    torch.nn.Linear(1024, 512),
-    torch.nn.ReLU(),
-    torch.nn.Linear(512, num_output_classes),
-    torch.nn.Sigmoid()
-)
+    for param in model.parameters():
+        param.requires_grad = False
+        
+    new_classifier = torch.nn.Sequential(
+        torch.nn.Linear(1024, 512),
+        torch.nn.ReLU(),
+        torch.nn.Linear(512, num_output_classes),
+        torch.nn.Sigmoid()
+    )
 
-model.classifier = new_classifier
+    model.classifier = new_classifier
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-# device = torch.device('cpu')
-print("Device: ", device)
-model.to(device)
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cpu')
+    print("Device: ", device)
+    model.to(device)
 
-#####   TRAINING   ######
-n_epoch = 3
-criterion = torch.nn.BCELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    #####   TRAINING   ######
+    n_epoch = 3
+    criterion = torch.nn.BCELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-n_total_steps = len(train_loader)
+    n_total_steps = len(train_loader)
 
-for epoch in range(n_epoch):
-    running_loss = 0.0
-    with tqdm(train_loader, unit="batch") as tepoch:
-        for data in tepoch:
-            # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data['image'], data['label']
-            inputs, labels = inputs.to(device), labels.to(device)
-            # zero the parameter gradients
-            optimizer.zero_grad()
+    for epoch in range(n_epoch):
+        running_loss = 0.0
+        with tqdm(train_loader, unit="batch") as tepoch:
+            for data in tepoch:
+                # get the inputs; data is a list of [inputs, labels]
+                inputs, labels = data['image'], data['label']
+                inputs, labels = inputs.to(device), labels.to(device)
+                # zero the parameter gradients
+                optimizer.zero_grad()
 
-            # forward + backward + optimize
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
+                # forward + backward + optimize
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
 
-            loss.backward()
-            optimizer.step()
+                loss.backward()
+                optimizer.step()
 
-            tepoch.set_postfix(loss=loss.item())
+                tepoch.set_postfix(loss=loss.item())
 
-print('Finished Training')
-print("Saving model")
-torch.save(model, "models/densenet121_valid.pth")
-print('Model saved in "models/densenet121_valid.pth"')
+    print('Finished Training')
+    print("Saving model")
+    torch.save(model, "models/densenet121_valid.pth")
+    print('Model saved in "models/densenet121_valid.pth"')
+
+    return model
