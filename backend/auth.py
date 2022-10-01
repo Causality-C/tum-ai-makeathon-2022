@@ -51,7 +51,7 @@ def tokenRequired(f):
     def decorated(*args, **kwargs):
         token = None
         if "Authorization" in request.headers:
-            print(request.headers)
+            # Make sure headers are valid
             if len(request.headers["authorization"].split(" ")) < 2:
                 return {
                     "message": "Invalid Authentication!",
