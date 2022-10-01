@@ -12,6 +12,7 @@ def inference_single_image(path, image):
             # transforms.CenterCrop(320),
             torchvision.transforms.Resize((320, 320)),
             torchvision.transforms.ToTensor(),
+            torchvision.transforms.ConvertImageDtype(torch.float32)
             ])
     input = transform(image)
     prediction = model(input)
