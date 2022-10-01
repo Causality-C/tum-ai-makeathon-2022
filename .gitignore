@@ -5,3 +5,4 @@ venv
 react-multi-choice-quiz
 frontend/
 local_images
+.venv
