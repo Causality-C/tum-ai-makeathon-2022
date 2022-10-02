@@ -40,7 +40,7 @@ export default class Login extends Component{
             pass: "invalid password"
         }
 
-        [this.isSubmitted, this.setIsSubmitted] = useState(false);
+        // [this.isSubmitted, this.setIsSubmitted] = useState(false);
 
         // Binding method
         this.handleSubmit = this.handleSubmit.bind(this);
