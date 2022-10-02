@@ -3,24 +3,6 @@ import PropTypes from "prop-types";
 
 
 export default class Login extends Component{
-    // const [errorMessages, setErrorMessages] = useState({});
-    // const [isSubmitted, setIsSubmitted] = useState(false);
-
-    // const errors = {
-    //     uname: "invalid username",
-    //     pass: "invalid password"
-    // };
-
-    // const database = [
-    //     {
-    //     username: "user1",
-    //     password: "pass1"
-    //     },
-    //     {
-    //     username: "user2",
-    //     password: "pass2"
-    //     }
-    // ];
     constructor(props) {
         super(props);
 
@@ -81,19 +63,17 @@ export default class Login extends Component{
     render()
     {
         return (
-            <div className="container form">
-                <form onSubmit={this.handleSubmit}>
-                    <div className="input-container">
+            <div className="container bg-transparent d-flex justify-content-center">
+                <form onSubmit={this.handleSubmit} className="">
+                    <div className="form-group mb-2">
                         <label>Username </label>
-                        <input type="text" name="uname" required />
+                        <input class="form-control" type="text" name="uname" required />
                     </div>
-                    <div className="input-container">
+                    <div className="form-group mb-2">
                         <label>Password </label>
-                        <input type="password" name="pass" required />
+                        <input class="form-control" type="password" name="pass" required />
                     </div>
-                    <div className="button-container">
-                        <input type="submit" />
-                    </div>
+                    <button className="btn btn-primary" type="submit">Submit</button>
                 </form>
             </div>
         )
