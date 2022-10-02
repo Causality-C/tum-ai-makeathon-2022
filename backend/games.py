@@ -13,6 +13,7 @@ from aws import (
     s3_dataset_bucket,
     dynamo_client,
     scan_table,
+    game_table,
 )
 
 from utils import update_rating, generate_random_string
@@ -41,9 +42,7 @@ basePath = os.path.dirname(os.path.abspath(getsourcefile(lambda: 0)))
 def upload_files(username, dataset_name):
     try:
         files = request.files.getlist("file")
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
-            "Item"
-        ]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
         i = int(res["images"])
         img_ids = []
         for file in files:
@@ -81,18 +80,14 @@ def upload_files(username, dataset_name):
         }, 500
 
 
-@dataset.route(
-    "/upload_files/verification/<string:dataset_name>", methods=["PUT"]
-)
+@dataset.route("/upload_files/verification/<string:dataset_name>", methods=["PUT"])
 @tokenRequired
 def verify_upload(username, dataset_name):
     try:
         req = request.get_json()
         new_labels = req["labels"]
         img_ids = req["id"]
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
-            "Item"
-        ]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
         labels = res["labels"]
         labels += new_labels
 
@@ -125,9 +120,7 @@ def create_dataset(username):
     res = dataset_table.get_item(Key={"dataset_name": dataset_name})
     if "Item" in res:
         return (
-            jsonify(
-                {"message": f"Dataset with name {dataset_name} already exists"}
-            ),
+            jsonify({"message": f"Dataset with name {dataset_name} already exists"}),
             400,
         )
 
@@ -159,7 +152,7 @@ def get_dataset(username, dataset_name):
     return jsonify(res)
 
 
-@dataset.route("/create_game", methods=["GET"])
+@dataset.route("/create_game", methods=["POST"])
 @tokenRequired
 def create_game(username):
     try:
@@ -167,9 +160,8 @@ def create_game(username):
         req = request.get_json()
         img_nr = req["images"]
         dataset_name = req["dataset"]
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
-            "Item"
-        ]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+
         # randomly sample images and labels from storage
         image_idxs = random.sample(range(0, int(res["images"])), img_nr)
         image_labels = [res["labels"][i] for i in image_idxs]
@@ -177,9 +169,7 @@ def create_game(username):
         success = dataset_table.update_item(
             Key={"dataset_name": dataset_name},
             UpdateExpression="SET games_made = :newGames_made",
-            ExpressionAttributeValues={
-                ":newGames_made": res["games_made"] + 1
-            },
+            ExpressionAttributeValues={":newGames_made": res["games_made"] + 1},
             ReturnValues="UPDATED_NEW",
         )
         return jsonify(
@@ -202,14 +192,20 @@ def create_game(username):
 @tokenRequired
 def game_end(username):
     try:
-        req = request.get_json()
         # read score and update database
+        req = request.get_json()
         user = user_table.get_item(Key={"username": username})["Item"]
+
+        # Score the game
+        correct, received = req["correct"], req["received"]
+        game_score = sum(
+            [1 if correct[i] == received[i] else 0 for i in range(len(correct))]
+        )
 
         curr_score = int(user["score"])
         correct_answers, wrong_answers = (
-            int(req["correct_answers"]),
-            int(req["wrong_answers"]),
+            game_score,
+            len(received) - game_score,
         )
 
         # Sets the new score based on algorithm
@@ -221,7 +217,15 @@ def game_end(username):
             ExpressionAttributeValues={":newScore": score},
             ReturnValues="UPDATED_NEW",
         )
-        return {"new_score": score}
+        return jsonify(
+            {
+                "new_score": score,
+                "num_correct": correct_answers,
+                "num_incorrect": wrong_answers,
+                "username": username
+            }
+        )
+
     except Exception as e:
         print("Error", str(e))
         return (
@@ -236,20 +240,18 @@ def game_end(username):
 
 @dataset.route("/leaderboard", methods=["GET"])
 @tokenRequired
-def leaderboard():
+def leaderboard(username):
     try:
         # query leaderboard from database
         items = user_table.scan()["Items"]
-        scores_list = [
-            (int(item["score"]), idx) for idx, item in enumerate(items)
-        ]
-        scores_list.sort()
+        scores_list = [(int(item["score"]), idx) for idx, item in enumerate(items)]
+        scores_list.sort(reverse=True) # Top players come first
         scores_sorted, permutation = zip(*scores_list)
         items_sorted = [
             {
                 "username": items[i]["username"],
                 "score": items[i]["score"],
-                "games_played": items["games_played"],
+                "games_played": items[i]["games_played"],
             }
             for i in permutation
         ]
@@ -264,19 +266,19 @@ def leaderboard():
 
 @dataset.route("/create_duell_room", methods=["GET"])
 @tokenRequired
-def create_duell_room():
+def create_duell_room(username):
     try:
         # read amount of images user wants
         req = request.get_json()
         img_nr = req["images"]
         dataset_name = req["dataset"]
-        dataset = dataset_table.get_item(Key={"dataset_name": dataset_name})[
-            "Item"
-        ]
+        dataset = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+
         # randomly sample images and labels from storage
         image_idxs = random.sample(range(0, dataset["nr_of_images"]), img_nr)
         image_labels = dataset["labels"][image_idxs]
         bucket_url = dataset["bucket_url"]
+
         # create a unique game id
         game_id = generate_random_string()
 

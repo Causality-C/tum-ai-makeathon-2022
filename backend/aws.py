@@ -30,6 +30,7 @@ s3_client = boto3.client(
 # Tables
 user_table = dynamodb.Table("tumaiusers")
 dataset_table = dynamodb.Table("tumaidatasets")
+game_table = dynamodb.Table("tumaiduelgames")
 
 # S3 Buckets
 s3_dataset_bucket = "tumai-uploads"
