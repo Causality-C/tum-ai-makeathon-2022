@@ -1,2 +1,4 @@
 data
 ml_venv
+__pycache__
+.vscode
