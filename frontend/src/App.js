@@ -177,7 +177,7 @@ class App extends Component {
     return (
       <div className="App">
         <div className="App-header d-flex justify-content-between align-items-center">
-          <img src="/logo2.png" className="logo" width={400} height={400}></img>
+          <img src="/logo.png" className="logo" width={400} height={400}></img>
           {this.state.questionSet && (
             <img
               src={this.state.questionSet[this.state.counter].img}
