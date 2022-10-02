@@ -20,6 +20,14 @@ function Result(props) {
           {props.quizResult.num_correct + props.quizResult.num_incorrect}
         </h3>
         <h3>New Score: {props.quizResult.new_score}</h3>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            window.location.reload(false);
+          }}
+        >
+          Return to Main Page
+        </button>
       </div>
     </CSSTransition>
   );
