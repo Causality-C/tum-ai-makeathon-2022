@@ -8,3 +8,7 @@ The Densenet121 is used as the backbone of the training. The training is a multi
 - model: saved models
 - notebooks: jupyter notebooks for experimenting
 - utils: utilities for dataclass and backend-ml API
+
+**Results**
+The following shows the ROC curve of the training for each class
+![alt text](https://github.com/[username]/[reponame]/blob/[branch]/roc_curve.jpg?raw=true)
