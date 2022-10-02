@@ -58,21 +58,21 @@ class App extends Component {
       dataset: this.state.firstChoice,
     })
       .then((data) => {
-        const { labels, dataset_name, bucket_url } = data;
+        const { true_labels, dataset_name, bucket_url, answer_choices } = data;
         console.log(data);
         this.setState({
           dataset: dataset_name,
-          quizAnswers: labels,
+          quizAnswers: true_labels,
         });
+
         // Set Questions and Answers Object
-        const qa = labels.map((label, i) => ({
+        const qa = true_labels.map((label, i) => ({
           question: "What is the status of this image?",
-          answers: this.shuffleArray([
-            { content: label, type: "a" },
-            { content: "b", type: "b" },
-            { content: "c", type: "c" },
-            { content: "d", type: "d" },
-          ]),
+          answers: this.shuffleArray(
+            answer_choices[i].map((option) => {
+              return { content: option, type: option };
+            })
+          ),
           answer: label,
           img: `${bucket_url}/${i}.jpeg`,
         }));
