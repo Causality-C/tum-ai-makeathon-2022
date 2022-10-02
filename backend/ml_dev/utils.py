@@ -60,3 +60,6 @@ class Model:
             input = torch.unsqueeze(input, dim=0)
         prediction = self.model(input)
         return prediction
+
+    def get_classes(self):
+        return self.pred_classes
