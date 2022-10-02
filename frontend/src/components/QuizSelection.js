@@ -28,6 +28,14 @@ export default function QuizSelection(props) {
       />
       <button onClick={props.handleFinish}>Submit</button>
       <img src={logo} height="400px" />
+      <button
+        onClick={() => {
+          localStorage.clear();
+          window.location.reload(false);
+        }}
+      >
+        Logout
+      </button>
     </div>
   );
 }

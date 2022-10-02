@@ -30,10 +30,11 @@ class App extends Component {
     this.handleAnswerSelected = this.handleAnswerSelected.bind(this);
     this.handleChange = this.handleChange.bind(this);
     this.initiateGame = this.initiateGame.bind(this);
+    this.loadDataset = this.loadDataset.bind(this);
   }
 
-  componentDidMount() {
-    getData(`${baseURL}/dataset/datasets`)
+  loadDataset() {
+    getData(`${baseURL}dataset/datasets`)
       .then((data) => {
         const parsedData = data.map((item) => {
           return {
@@ -50,6 +51,11 @@ class App extends Component {
       .catch((e) => {
         console.log(e);
       });
+  }
+  componentDidMount() {
+    if (localStorage.getItem("token")) {
+      this.loadDataset();
+    }
   }
 
   initiateGame() {
@@ -152,10 +158,6 @@ class App extends Component {
     });
   }
 
-  getLoginForm(){
-    return <Login />
-  }
-
   renderQuiz() {
     return (
       <Quiz
@@ -185,6 +187,7 @@ class App extends Component {
             />
           )}
           <h2>Beat The Doctor</h2>
+          <h2>User: {localStorage.getItem("user")}</h2>
           <h2>Dataset: {this.state.firstChoice}</h2>
         </div>
         {this.state.questionSet ? (
@@ -194,19 +197,21 @@ class App extends Component {
             this.renderQuiz()
           )
         ) : this.state.gameOptions ? (
-          <QuizSelection
-            choice={this.state.firstChoice}
-            handleChange={this.handleChange}
-            datasets={this.state.gameOptions}
-            maxImages={this.state.maxImages}
-            numImages={this.state.numImages}
-            handleNumImageChange={(e) =>
-              this.setState({ numImages: e.target.value })
-            }
-            handleFinish={this.initiateGame}
-          />
+          <div>
+            <QuizSelection
+              choice={this.state.firstChoice}
+              handleChange={this.handleChange}
+              datasets={this.state.gameOptions}
+              maxImages={this.state.maxImages}
+              numImages={this.state.numImages}
+              handleNumImageChange={(e) =>
+                this.setState({ numImages: e.target.value })
+              }
+              handleFinish={this.initiateGame}
+            />
+          </div>
         ) : (
-          this.getLoginForm()
+          <Login load={this.loadDataset} />
         )}
       </div>
     );
