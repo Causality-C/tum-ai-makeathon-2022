@@ -5,13 +5,20 @@ import time
 
 def update_rating(current_rating, correct_answers, wrong_answers):
 
-    correct_weight = min(125, 100000 // current_rating)
+    if current_rating > 1e-5:
+        correct_weight = min(125, 100000 // current_rating)
+    else:
+        correct_weight = 125
     accuracy_level = current_rating / 5000
 
-    wrong_weight = math.ceil(correct_weight * accuracy_level / (1 - accuracy_level))
+    wrong_weight = math.ceil(
+        correct_weight * accuracy_level / (1 - accuracy_level)
+    )
 
     new_rating = (
-        current_rating + correct_answers * correct_weight - wrong_answers * wrong_weight
+        current_rating
+        + correct_answers * correct_weight
+        - wrong_answers * wrong_weight
     )
 
     return new_rating

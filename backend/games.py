@@ -32,7 +32,6 @@ class duellFull(Exception):
 
 # Blueprints modularize code
 dataset = Blueprint("dataset", __name__)
-game_id = ""
 
 basePath = os.path.dirname(os.path.abspath(getsourcefile(lambda: 0)))
 
@@ -42,7 +41,9 @@ basePath = os.path.dirname(os.path.abspath(getsourcefile(lambda: 0)))
 def upload_files(username, dataset_name):
     try:
         files = request.files.getlist("file")
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
+            "Item"
+        ]
         i = int(res["images"])
         img_ids = []
         for file in files:
@@ -52,7 +53,7 @@ def upload_files(username, dataset_name):
             s3_client.upload_file(
                 file_path,
                 s3_dataset_bucket,
-                f"{dataset_name}/{i}.png",
+                f"{dataset_name}/{i}.jpeg",
                 ExtraArgs={"ACL": "public-read"},
             )
             img_ids.append(i)
@@ -80,14 +81,18 @@ def upload_files(username, dataset_name):
         }, 500
 
 
-@dataset.route("/upload_files/verification/<string:dataset_name>", methods=["PUT"])
+@dataset.route(
+    "/upload_files/verification/<string:dataset_name>", methods=["PUT"]
+)
 @tokenRequired
 def verify_upload(username, dataset_name):
     try:
         req = request.get_json()
         new_labels = req["labels"]
         img_ids = req["id"]
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
+            "Item"
+        ]
         labels = res["labels"]
         labels += new_labels
 
@@ -120,7 +125,9 @@ def create_dataset(username):
     res = dataset_table.get_item(Key={"dataset_name": dataset_name})
     if "Item" in res:
         return (
-            jsonify({"message": f"Dataset with name {dataset_name} already exists"}),
+            jsonify(
+                {"message": f"Dataset with name {dataset_name} already exists"}
+            ),
             400,
         )
 
@@ -154,23 +161,25 @@ def get_dataset(username, dataset_name):
 
 @dataset.route("/create_game", methods=["GET"])
 @tokenRequired
-def create_game():
+def create_game(username):
     try:
         # read amount of images user wants
         req = request.get_json()
         img_nr = req["images"]
         dataset_name = req["dataset"]
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
+            "Item"
+        ]
         # randomly sample images and labels from storage
-        image_idxs = random.sample(range(0, res["nr_of_images"]), img_nr)
-        image_labels = res["labels"][image_idxs]
+        image_idxs = random.sample(range(0, int(res["images"])), img_nr)
+        image_labels = [res["labels"][i] for i in image_idxs]
         bucket_url = res["bucket_url"]
-        # create a unique game id
-        game_id = generate_random_string()
         success = dataset_table.update_item(
             Key={"dataset_name": dataset_name},
             UpdateExpression="SET games_made = :newGames_made",
-            ExpressionAttributeValues={":newGames_made": res["games_made"] + 1},
+            ExpressionAttributeValues={
+                ":newGames_made": res["games_made"] + 1
+            },
             ReturnValues="UPDATED_NEW",
         )
         return jsonify(
@@ -178,7 +187,6 @@ def create_game():
                 "subset": image_idxs,
                 "labels": image_labels,
                 "bucket_url": bucket_url,
-                "id": game_id,
             }
         )
     except Exception as e:
@@ -190,18 +198,19 @@ def create_game():
         }, 500
 
 
-@dataset.route("/game_end/<string:req_game_id>", methods=["PUT"])
+@dataset.route("/game_end", methods=["PUT"])
 @tokenRequired
-def game_end(username, req_game_id):
+def game_end(username):
     try:
-        if req_game_id != game_id:
-            raise wrongGameId
         req = request.get_json()
         # read score and update database
         user = user_table.get_item(Key={"username": username})["Item"]
 
-        curr_score = user["score"]
-        correct_answers, wrong_answers = req["correct_answers"], req["wrong_answers"]
+        curr_score = int(user["score"])
+        correct_answers, wrong_answers = (
+            int(req["correct_answers"]),
+            int(req["wrong_answers"]),
+        )
 
         # Sets the new score based on algorithm
         score = update_rating(curr_score, correct_answers, wrong_answers)
@@ -212,10 +221,7 @@ def game_end(username, req_game_id):
             ExpressionAttributeValues={":newScore": score},
             ReturnValues="UPDATED_NEW",
         )
-
         return {"new_score": score}
-    except wrongGameId:
-        return ({"message": "Game id not currently active", "data": req_game_id}, 404)
     except Exception as e:
         print("Error", str(e))
         return (
@@ -233,8 +239,21 @@ def game_end(username, req_game_id):
 def leaderboard():
     try:
         # query leaderboard from database
-        items = scan_table(dynamo_client)
-        return "Success"
+        items = user_table.scan()["Items"]
+        scores_list = [
+            (int(item["score"]), idx) for idx, item in enumerate(items)
+        ]
+        scores_list.sort()
+        scores_sorted, permutation = zip(*scores_list)
+        items_sorted = [
+            {
+                "username": items[i]["username"],
+                "score": items[i]["score"],
+                "games_played": items["games_played"],
+            }
+            for i in permutation
+        ]
+        return jsonify(items_sorted)
     except Exception as e:
         return {
             "message": "Something went wrong",
@@ -251,7 +270,9 @@ def create_duell_room():
         req = request.get_json()
         img_nr = req["images"]
         dataset_name = req["dataset"]
-        dataset = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+        dataset = dataset_table.get_item(Key={"dataset_name": dataset_name})[
+            "Item"
+        ]
         # randomly sample images and labels from storage
         image_idxs = random.sample(range(0, dataset["nr_of_images"]), img_nr)
         image_labels = dataset["labels"][image_idxs]
