@@ -187,8 +187,11 @@ class App extends Component {
               height="30%"
             />
           )}
-          <h2>User: {localStorage.getItem("user")}</h2>
-          <h2>Dataset: {this.state.firstChoice}</h2>
+          <div>
+            <h2>User: {localStorage.getItem("user")}</h2>
+            <h2>Dataset: {this.state.firstChoice}</h2>
+          </div>
+
         </div>
         {this.state.questionSet ? (
           this.state.result ? (

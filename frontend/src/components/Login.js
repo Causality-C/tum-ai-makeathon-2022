@@ -24,9 +24,10 @@ export default function Login(props) {
     <div className="container bg-transparent d-flex justify-content-center">
       <div className="container form">
         <form onSubmit={handleSubmit}>
-          <div className="input-container">
+          <div className="form-group mb-2">
             <label>Username </label>
             <input
+              className="form-control"
               type="text"
               name="uname"
               value={user}
@@ -34,9 +35,10 @@ export default function Login(props) {
               required
             />
           </div>
-          <div className="input-container">
+          <div  className="form-group mb-2">
             <label>Password </label>
             <input
+              className="form-control"
               type="password"
               name="pass"
               value={password}
@@ -44,9 +46,9 @@ export default function Login(props) {
               required
             />
           </div>
-          <div className="button-container">
-            <input type="submit" />
-          </div>
+          <button className="btn btn-primary" type="submit">
+            Submit
+          </button>
         </form>
       </div>
     </div>
