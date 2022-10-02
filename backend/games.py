@@ -59,9 +59,7 @@ def generate_answers(labels, nr_of_choices):
 def upload_files(username, dataset_name):
     try:
         files = request.files.getlist("file")
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
-            "Item"
-        ]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
         i = int(res["images"])
         img_ids = []
         images = []
@@ -80,7 +78,9 @@ def upload_files(username, dataset_name):
             i += 1
 
         # Send list of predictions back to the frontend
-        predictions = ml_model.inference_multiple_images(os.path.join(basePath,"local_images"))
+        predictions = ml_model.inference_multiple_images(
+            os.path.join(basePath, "local_images")
+        )
 
         # Run ML Model with images
         success = dataset_table.update_item(
@@ -105,18 +105,14 @@ def upload_files(username, dataset_name):
         }, 500
 
 
-@dataset.route(
-    "/upload_files/verification/<string:dataset_name>", methods=["PUT"]
-)
+@dataset.route("/upload_files/verification/<string:dataset_name>", methods=["PUT"])
 @tokenRequired
 def verify_upload(username, dataset_name):
     try:
         req = request.get_json()
         new_labels = req["labels"]
         img_ids = req["id"]
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
-            "Item"
-        ]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
         labels = res["labels"]
         labels += new_labels
 
@@ -149,9 +145,7 @@ def create_dataset(username):
     res = dataset_table.get_item(Key={"dataset_name": dataset_name})
     if "Item" in res:
         return (
-            jsonify(
-                {"message": f"Dataset with name {dataset_name} already exists"}
-            ),
+            jsonify({"message": f"Dataset with name {dataset_name} already exists"}),
             400,
         )
 
@@ -191,9 +185,7 @@ def create_game(username):
         req = request.get_json()
         img_nr = req["images"]
         dataset_name = req["dataset"]
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
-            "Item"
-        ]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
 
         # randomly sample images and labels from storage
         image_idxs = random.sample(range(0, int(res["images"])), img_nr)
@@ -202,9 +194,7 @@ def create_game(username):
         success = dataset_table.update_item(
             Key={"dataset_name": dataset_name},
             UpdateExpression="SET games_made = :newGames_made",
-            ExpressionAttributeValues={
-                ":newGames_made": res["games_made"] + 1
-            },
+            ExpressionAttributeValues={":newGames_made": res["games_made"] + 1},
             ReturnValues="UPDATED_NEW",
         )
         # generate answer choices
@@ -237,10 +227,7 @@ def game_end(username):
         # Score the game
         correct, received = req["correct"], req["received"]
         game_score = sum(
-            [
-                1 if correct[i] == received[i] else 0
-                for i in range(len(correct))
-            ]
+            [1 if correct[i] == received[i] else 0 for i in range(len(correct))]
         )
 
         curr_score = int(user["score"])
@@ -285,9 +272,7 @@ def leaderboard(username):
     try:
         # query leaderboard from database
         items = user_table.scan()["Items"]
-        scores_list = [
-            (int(item["score"]), idx) for idx, item in enumerate(items)
-        ]
+        scores_list = [(int(item["score"]), idx) for idx, item in enumerate(items)]
         scores_list.sort(reverse=True)  # Top players come first
         scores_sorted, permutation = zip(*scores_list)
         items_sorted = [
@@ -307,7 +292,7 @@ def leaderboard(username):
         }, 500
 
 
-@dataset.route("/create_duell_room", methods=["GET"])
+@dataset.route("/create_duell_room", methods=["POST"])
 @tokenRequired
 def create_duell_room(username):
     try:
@@ -315,26 +300,35 @@ def create_duell_room(username):
         req = request.get_json()
         img_nr = req["images"]
         dataset_name = req["dataset"]
-        dataset = dataset_table.get_item(Key={"dataset_name": dataset_name})[
-            "Item"
-        ]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
 
         # randomly sample images and labels from storage
-        image_idxs = random.sample(range(0, dataset["nr_of_images"]), img_nr)
-        image_labels = dataset["labels"][image_idxs]
-        bucket_url = dataset["bucket_url"]
+        image_idxs = random.sample(range(0, int(res["images"])), img_nr)
+        image_labels = [res["labels"][i] for i in image_idxs]
+        bucket_url = res["bucket_url"]
+        success = dataset_table.update_item(
+            Key={"dataset_name": dataset_name},
+            UpdateExpression="SET games_made = :newGames_made",
+            ExpressionAttributeValues={":newGames_made": res["games_made"] + 1},
+            ReturnValues="UPDATED_NEW",
+        )
 
         # create a unique game id
         game_id = generate_random_string()
+        answer_choices = generate_answers(image_labels, 4)
+        duel = {
+            "subset": image_idxs,
+            "answer_choices": answer_choices,
+            "true_labels": image_labels,
+            "bucket_url": bucket_url,
+            "game_id": game_id,
+            "game_status": "pending",
+            "players": [],
+        }
+        game_table.put_item(Item=duel)
 
-        return jsonify(
-            {
-                "subset": image_idxs,
-                "labels": image_labels,
-                "bucket_url": bucket_url,
-                "id": game_id,
-            }
-        )
+        return jsonify({"game_id": game_id})
+
     except Exception as e:
         print("Error", str(e))
         return {
@@ -344,50 +338,59 @@ def create_duell_room(username):
         }, 500
 
 
-@dataset.route("/join_duell_room/<string:game_id>", methods=["GET"])
+@dataset.route("/duell_room/<string:game_id>", methods=["GET"])
 @tokenRequired
-def join_duell_room(username, game_id):
+def get_duel_room(username, game_id):
+    try:
+        duel = game_table.get_item(Key={"game_id": game_id})["Item"]
+        return jsonify(duel)
+    except Exception as e:
+        print("Error", str(e))
+        return {
+            "message": "Something went wrong",
+            "data": None,
+            "error": str(e),
+        }, 500
+
+
+@dataset.route("/join_duell_room/<string:game_id>", methods=["POST"])
+@tokenRequired
+def join_duel_room(username, game_id):
     try:
         # read amount of images user wants
         req = request.get_json()
-
         game = game_table.get_item(Key={"game_id": game_id})["Item"]
-        image_labels = game["image_labels"]
-        image_idxs = game["subset_index"]
-
-        bucket_url = game["bucket_url"]
-
-        player_1 = game["player_1"]
-        player_2 = game["player_2"]
-
-        game_id = game["game_id"]
-
-        if not player_1:
-            player_1 = username
-            return jsonify(
-                {
-                    "player_1": player_1,
-                    "subset": image_idxs,
-                    "labels": image_labels,
-                    "bucket_url": bucket_url,
-                    "id": game_id,
-                }
-            )
-        elif not player_2:
-            player_2 = username
-            return jsonify(
-                {
-                    "player_2": player_2,
-                    "subset": image_idxs,
-                    "labels": image_labels,
-                    "bucket_url": bucket_url,
-                    "id": game_id,
-                }
-            )
-        else:
-            raise duellFull
-    except duellFull:
-        return ({"message": "Duell is already full", "data": game_id}, 404)
+        if game["game_status"] == "started":
+            if username not in game["players"]:
+                return {
+                    "message": "Game either started or finished already, you cannot join",
+                    "data": None,
+                    "error": str(e),
+                }, 400
+            else:
+                return jsonify(game)
+        elif game["game_status"] == "finished":
+            return {
+                "message": "Game finished already, you cannot join",
+                "data": None,
+                "error": str(e),
+            }, 400
+        elif game["game_status"] == "pending":
+            if len(game["players"]) >= 2 and username not in game["players"]:
+                return {
+                    "message": "Duel is already full",
+                    "data": None,
+                    "error": str(e),
+                }, 400
+            elif username not in game["players"]:
+                game["players"].append(username)
+                success = game_table.update_item(
+                    Key={"game_id": game_id},
+                    UpdateExpression="SET players = :newPlayers",
+                    ExpressionAttributeValues={":newPlayers": game["players"]},
+                    ReturnValues="UPDATED_NEW",
+                )
+            return jsonify(game)
     except Exception as e:
         print("Error", str(e))
         return {
@@ -395,3 +398,28 @@ def join_duell_room(username, game_id):
             "data": None,
             "error": str(e),
         }, 500
+
+
+@dataset.route("/start_duel/<string:game_id>", methods=["POST"])
+@tokenRequired
+def start_duel(username, game_id):
+    game = game_table.get_item(Key={"game_id": game_id})["Item"]
+    if len(game['players']) != 2:
+        return {
+            "message": "You need two players to start at duel",
+            "data": None,
+        }, 400
+    if game['game_status'] == "pending":
+        success = game_table.update_item(
+            Key={"game_id": game_id},
+            UpdateExpression="SET game_status = :newStatus",
+            ExpressionAttributeValues={":newStatus": "started"},
+            ReturnValues="ALL_NEW",
+        )['Atrributes']
+        return jsonify(success)
+    else:
+        return {
+                "message": "Duel was not pending",
+                "data": None,
+            }, 400
+    pass
