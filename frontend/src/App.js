@@ -178,7 +178,8 @@ class App extends Component {
   render() {
     return (
       <div className="App">
-        <div className="App-header">
+        <div className="App-header d-flex justify-content-between align-items-center">
+          <img src="/logo.png" className="logo" width={400} height={400} />
           {this.state.questionSet && (
             <img
               src={this.state.questionSet[this.state.counter].img}
@@ -186,7 +187,6 @@ class App extends Component {
               height="30%"
             />
           )}
-          <h2>Beat The Doctor</h2>
           <h2>User: {localStorage.getItem("user")}</h2>
           <h2>Dataset: {this.state.firstChoice}</h2>
         </div>

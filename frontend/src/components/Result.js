@@ -1,10 +1,10 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { CSSTransitionGroup } from "react-transition-group";
+import { CSSTransition } from "react-transition-group";
 
 function Result(props) {
   return (
-    <CSSTransitionGroup
+    <CSSTransition
       className="container result"
       component="div"
       transitionName="fade"
@@ -21,7 +21,7 @@ function Result(props) {
         </h3>
         <h3>New Score: {props.quizResult.new_score}</h3>
       </div>
-    </CSSTransitionGroup>
+    </CSSTransition>
   );
 }
 
