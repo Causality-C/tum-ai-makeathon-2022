@@ -11,4 +11,4 @@ The Densenet121 is used as the backbone of the training. The training is a multi
 
 **Results**
 The following shows the ROC curve of the training for each class
-![alt text](https://github.com/Causality-C/tum-ai-makeathon-2022/blob/ml-dev/roc_curve.jpg?raw=true)
+![alt text](https://github.com/Causality-C/tum-ai-makeathon-2022/blob/ml-dev/ml/roc_curve.jpg?raw=true)
