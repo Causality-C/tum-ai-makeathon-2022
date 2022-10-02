@@ -64,7 +64,7 @@ def upload_files(username, dataset_name):
             i += 1
 
         # Send list of predictions back to the frontend
-        predictions = ml_model.inference_multiple_images("local_images")
+        predictions = ml_model.inference_multiple_images(os.path.join(basePath,"local_images"))
 
         # Run ML Model with images
         success = dataset_table.update_item(
