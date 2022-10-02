@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import Quiz from "./components/Quiz";
 import Result from "./components/Result";
 import QuizSelection from "./components/QuizSelection";
+import Login from "./components/Login";
 import "./App.css";
 import { getData, postData, baseURL, putData } from "./util";
 
@@ -151,6 +152,10 @@ class App extends Component {
     });
   }
 
+  getLoginForm(){
+    return <Login />
+  }
+
   renderQuiz() {
     return (
       <Quiz
@@ -201,7 +206,7 @@ class App extends Component {
             handleFinish={this.initiateGame}
           />
         ) : (
-          <h1>Waiting</h1>
+          this.getLoginForm()
         )}
       </div>
     );
