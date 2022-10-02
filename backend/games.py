@@ -1,3 +1,4 @@
+from multiprocessing.connection import answer_challenge
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 import random
@@ -36,6 +37,21 @@ class duellFull(Exception):
 dataset = Blueprint("dataset", __name__)
 
 basePath = os.path.dirname(os.path.abspath(getsourcefile(lambda: 0)))
+
+
+def generate_answers(labels, nr_of_choices):
+    possible_classes = ml_model.get_classes()
+    answer_choices = []
+    for idx, label in enumerate(labels):
+        choices = possible_classes.copy()
+        # remove the true label from random choices
+        choices.remove(label)
+        choices = random.sample(choices, nr_of_choices)
+        insert = random.choice(range(0, nr_of_choices))
+        choices.insert(insert, label)
+        answer_choices.append(choices)
+    return answer_choices
+
 
 # Admin Required
 @dataset.route("/upload_files/<string:dataset_name>", methods=["POST"])
@@ -191,10 +207,13 @@ def create_game(username):
             },
             ReturnValues="UPDATED_NEW",
         )
+        # generate answer choices
+        answer_choices = generate_answers(image_labels, 4)
         return jsonify(
             {
                 "subset": image_idxs,
-                "labels": image_labels,
+                "answer_choices": answer_choices,
+                "true_labels": image_labels,
                 "bucket_url": bucket_url,
             }
         )
