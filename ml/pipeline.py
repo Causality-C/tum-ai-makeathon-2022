@@ -21,7 +21,7 @@ import numpy as np
 from PIL import Image
 from io import StringIO
 from torchvision import transforms
-from ml_utils import DiseaseDataset, TrainDiseaseDataset
+from ml_utils import DiseaseDataset, load_chexpert_train
 
 
 # azureml-core of version 1.0.72 or higher is required
@@ -55,45 +55,13 @@ for i, p in enumerate(df_valid["Path"]):
 
 # READ ZIP FILE
 zip_path = 'CheXpert-v1.0-small.zip'
-if os.path.isfile(zip_path):
-    z = zipfile.ZipFile(zip_path)
-else:
-    print("N zip file exists! Please download.")
-    sys.exit(0)
-
-zip_name_list = z.namelist()
-zip_train_list = [x for x in zip_name_list if x.startswith('CheXpert-v1.0-small/train') and x.endswith('.jpg')]
-
-######  TRAIN DATA  ######
-# Train Image Names
-sorted_train_list = sorted(zip_train_list, key=lambda f: int(f[33:38]))[1:]
-
-# Train Labels
-train_csv = 'CheXpert-v1.0-small/train.csv'
-df_train = pd.read_csv(z.open(train_csv))
-labels = list(df_train.columns[5:])
-label_arr_train = df_train[labels].to_numpy(na_value=0)
-label_arr_train = np.where(label_arr_train == -1, 0, label_arr_train)
-
-# Train Data Loader
-batch_size = 32
-nr_train = len(sorted_train_list)
-idx_list = np.arange(nr_train)
-
-# Half of the train samples
-random_list= [random.sample(list(idx_list), int(nr_train/2))]
-half_train_labels = label_arr_train[tuple(random_list)]
-sorted_train_list = np.reshape(np.array(sorted_train_list), (-1, 1))
-half_train_img_list = sorted_train_list[tuple(random_list)]
-
-train_data = TrainDiseaseDataset(z, half_train_img_list, half_train_labels)
-train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+# Train Loader (from zip file)
+train_loader = load_chexpert_train(zip_path, data_percentage=0.5, batch_size=32)
 
 ######  TEST DATA  ######
 # Test Labels
 labels = list(df.columns[5:])
 label_arr_test = df[labels].to_numpy()
-
 # Test Data Loader
 batch_size = 5
 test_data = DiseaseDataset('valid', label_arr_test)

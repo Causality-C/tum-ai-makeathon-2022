@@ -7,6 +7,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import torch
 from ml_utils import DiseaseDataset
+from utils import load_model
 
 subscription_id = 'c0e252b0-50d3-44e6-bb79-a007a94e3a9e'
 resource_group = 'ml_rg'
@@ -33,7 +34,7 @@ test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
 ######   MODEL  ######
 model_path = "models/densenet121_valid.pth"
-model = torch.load(model_path)
+model = load_model(model_path)
 
 # def calculate_metrics(pred, target, threshold=0.5):
 #     from sklearn.metrics import precision_score, recall_score, f1_score
