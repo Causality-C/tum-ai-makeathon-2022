@@ -11,6 +11,8 @@ app.register_blueprint(dataset, url_prefix="/dataset")
 CORS(app)
 load_dotenv()
 
+# load ML model
+
 
 @app.get("/")
 def getReq():

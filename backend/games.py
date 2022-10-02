@@ -15,6 +15,7 @@ from aws import (
     scan_table,
     game_table,
 )
+from ml import ml_model
 
 from utils import update_rating, generate_random_string
 
@@ -42,9 +43,12 @@ basePath = os.path.dirname(os.path.abspath(getsourcefile(lambda: 0)))
 def upload_files(username, dataset_name):
     try:
         files = request.files.getlist("file")
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
+            "Item"
+        ]
         i = int(res["images"])
         img_ids = []
+        images = []
         for file in files:
             filename = secure_filename(file.filename)
             file_path = os.path.join(basePath, "local_images", filename)
@@ -56,10 +60,11 @@ def upload_files(username, dataset_name):
                 ExtraArgs={"ACL": "public-read"},
             )
             img_ids.append(i)
+
             i += 1
 
         # Send list of predictions back to the frontend
-        predictions = [f"l{j}" for j in range(len(res["labels"]), i)]
+        predictions = ml_model.inference_multiple_images("local_images")
 
         # Run ML Model with images
         success = dataset_table.update_item(
@@ -71,6 +76,10 @@ def upload_files(username, dataset_name):
             },
             ReturnValues="UPDATED_NEW",
         )
+        # clean up temporary image directory
+        files_list = os.listdir(os.path.join(basePath, "local_images"))
+        for file in files_list:
+            os.remove(os.path.join(basePath, "local_images", file))
         return {"predictions": predictions, "id": img_ids}
     except Exception as e:
         return {
@@ -80,14 +89,18 @@ def upload_files(username, dataset_name):
         }, 500
 
 
-@dataset.route("/upload_files/verification/<string:dataset_name>", methods=["PUT"])
+@dataset.route(
+    "/upload_files/verification/<string:dataset_name>", methods=["PUT"]
+)
 @tokenRequired
 def verify_upload(username, dataset_name):
     try:
         req = request.get_json()
         new_labels = req["labels"]
         img_ids = req["id"]
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
+            "Item"
+        ]
         labels = res["labels"]
         labels += new_labels
 
@@ -120,7 +133,9 @@ def create_dataset(username):
     res = dataset_table.get_item(Key={"dataset_name": dataset_name})
     if "Item" in res:
         return (
-            jsonify({"message": f"Dataset with name {dataset_name} already exists"}),
+            jsonify(
+                {"message": f"Dataset with name {dataset_name} already exists"}
+            ),
             400,
         )
 
@@ -160,7 +175,9 @@ def create_game(username):
         req = request.get_json()
         img_nr = req["images"]
         dataset_name = req["dataset"]
-        res = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+        res = dataset_table.get_item(Key={"dataset_name": dataset_name})[
+            "Item"
+        ]
 
         # randomly sample images and labels from storage
         image_idxs = random.sample(range(0, int(res["images"])), img_nr)
@@ -169,7 +186,9 @@ def create_game(username):
         success = dataset_table.update_item(
             Key={"dataset_name": dataset_name},
             UpdateExpression="SET games_made = :newGames_made",
-            ExpressionAttributeValues={":newGames_made": res["games_made"] + 1},
+            ExpressionAttributeValues={
+                ":newGames_made": res["games_made"] + 1
+            },
             ReturnValues="UPDATED_NEW",
         )
         return jsonify(
@@ -199,7 +218,10 @@ def game_end(username):
         # Score the game
         correct, received = req["correct"], req["received"]
         game_score = sum(
-            [1 if correct[i] == received[i] else 0 for i in range(len(correct))]
+            [
+                1 if correct[i] == received[i] else 0
+                for i in range(len(correct))
+            ]
         )
 
         curr_score = int(user["score"])
@@ -222,7 +244,7 @@ def game_end(username):
                 "new_score": score,
                 "num_correct": correct_answers,
                 "num_incorrect": wrong_answers,
-                "username": username
+                "username": username,
             }
         )
 
@@ -244,8 +266,10 @@ def leaderboard(username):
     try:
         # query leaderboard from database
         items = user_table.scan()["Items"]
-        scores_list = [(int(item["score"]), idx) for idx, item in enumerate(items)]
-        scores_list.sort(reverse=True) # Top players come first
+        scores_list = [
+            (int(item["score"]), idx) for idx, item in enumerate(items)
+        ]
+        scores_list.sort(reverse=True)  # Top players come first
         scores_sorted, permutation = zip(*scores_list)
         items_sorted = [
             {
@@ -272,7 +296,9 @@ def create_duell_room(username):
         req = request.get_json()
         img_nr = req["images"]
         dataset_name = req["dataset"]
-        dataset = dataset_table.get_item(Key={"dataset_name": dataset_name})["Item"]
+        dataset = dataset_table.get_item(Key={"dataset_name": dataset_name})[
+            "Item"
+        ]
 
         # randomly sample images and labels from storage
         image_idxs = random.sample(range(0, dataset["nr_of_images"]), img_nr)
