@@ -3,6 +3,5 @@ __pycache__
 .vscode
 venv
 react-multi-choice-quiz
-frontend/
 local_images
 .venv
