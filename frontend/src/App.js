@@ -74,7 +74,7 @@ class App extends Component {
 
         // Set Questions and Answers Object
         const qa = true_labels.map((label, i) => ({
-          question: "What is the status of this image?",
+          question: "Classify the following image",
           answers: this.shuffleArray(
             answer_choices[i].map((option) => {
               return { content: option, type: option };
@@ -187,8 +187,22 @@ class App extends Component {
               height="30%"
             />
           )}
-          <h2>User: {localStorage.getItem("user")}</h2>
-          <h2>Dataset: {this.state.firstChoice}</h2>
+          {localStorage.getItem("user") && (
+            <div>
+              <h2 style={{ marginBottom: "20px" }}>
+                User: {localStorage.getItem("user")}
+              </h2>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  localStorage.clear();
+                  window.location.reload(false);
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
         {this.state.questionSet ? (
           this.state.result ? (

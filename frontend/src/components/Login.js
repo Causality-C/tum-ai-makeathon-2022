@@ -24,28 +24,32 @@ export default function Login(props) {
     <div className="container bg-transparent d-flex justify-content-center">
       <div className="container form">
         <form onSubmit={handleSubmit}>
-          <div className="input-container">
+          <div className="p-2 form-group-mb-2">
             <label>Username </label>
             <input
               type="text"
+              class="form-control"
               name="uname"
               value={user}
               onChange={(e) => setUser(e.target.value)}
               required
             />
           </div>
-          <div className="input-container">
+          <div className="p-2 form-group-mb-2">
             <label>Password </label>
             <input
               type="password"
+              class="form-control"
               name="pass"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
-          <div className="button-container">
-            <input type="submit" />
+          <div className="p-2 button-container">
+            <button className="btn btn-primary" type="submit">
+              Submit
+            </button>
           </div>
         </form>
       </div>

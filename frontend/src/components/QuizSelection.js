@@ -20,21 +20,15 @@ export default function QuizSelection(props) {
       </select>
       <h1># Images for the Quiz</h1>
       <input
+        style={{ marginBottom: "10px" }}
         type="number"
         min="1"
         max={props.maxImages}
         value={props.numImages}
         onChange={props.handleNumImageChange}
       />
-      <button onClick={props.handleFinish}>Submit</button>
-      <img src={logo} height="400px" />
-      <button
-        onClick={() => {
-          localStorage.clear();
-          window.location.reload(false);
-        }}
-      >
-        Logout
+      <button className="btn btn-primary" onClick={props.handleFinish}>
+        Submit
       </button>
     </div>
   );
