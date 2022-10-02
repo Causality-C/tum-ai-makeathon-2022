@@ -1,0 +1,7 @@
+__pycache__
+.env
+.vscode
+venv
+react-multi-choice-quiz
+local_images
+.venv
