@@ -59,14 +59,12 @@ class App extends Component {
   }
 
   initiateGame() {
-    console.log(this.state);
     postData(`${baseURL}dataset/create_game`, localStorage.getItem("token"), {
       images: parseInt(this.state.numImages),
       dataset: this.state.firstChoice,
     })
       .then((data) => {
         const { true_labels, dataset_name, bucket_url, answer_choices } = data;
-        console.log(data);
         this.setState({
           dataset: dataset_name,
           quizAnswers: true_labels,
@@ -117,7 +115,6 @@ class App extends Component {
 
   handleAnswerSelected(event) {
     this.state.userAnswers.push(event.currentTarget.value);
-    console.log(this.state.userAnswers);
 
     if (this.state.questionId < this.state.questionSet.length) {
       setTimeout(() => this.setNextQuestion(), 300);
@@ -139,7 +136,6 @@ class App extends Component {
     });
   }
   handleChange(e) {
-    console.log(e.target, e.target.value, e.target.enum);
     // Get the number of images in the dataset
     const res = this.state.gameOptions.filter((obj) => {
       return obj.dataset_name === e.target.value;
@@ -148,12 +144,10 @@ class App extends Component {
   }
   getResults() {
     // Replace logic with ones we call
-    console.log(this.state.userAnswers, this.state.quizAnswers);
     putData(`${baseURL}dataset/game_end`, localStorage.getItem("token"), {
       correct: this.state.quizAnswers,
       received: this.state.userAnswers,
     }).then((data) => {
-      console.log(data);
       this.setState({ result: data });
     });
   }
